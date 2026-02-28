@@ -9,8 +9,10 @@ const GITHUB_API = "https://api.github.com";
 // 30 minutes — if the participant hasn't refreshed in half an hour we can't trust it.
 const LOCATION_STALENESS_MS = 30 * 60 * 1000;
 
-// Cache repos that returned 404 so we don't spam the API
-const _skippedRepos = new Set();
+// Track repos that returned 404 with a retry counter.
+// After 3 consecutive 404s we skip until the next server restart.
+const _repoFailCount = new Map();
+const MAX_FAIL_COUNT = 3;
 
 /**
  * Fetch commits from the GitHub API for a given team's repo
@@ -22,29 +24,40 @@ const _skippedRepos = new Set();
 async function syncRepoCommits(team, hackathon) {
   const repoFullName = team.repoFullName;
 
-  // Skip repos that previously returned 404 (e.g. seed data)
-  if (_skippedRepos.has(repoFullName)) return { total: 0, new: 0, updated: 0, skipped: true };
+  // Skip repos that have failed too many times consecutively
+  const failCount = _repoFailCount.get(repoFullName) || 0;
+  if (failCount >= MAX_FAIL_COUNT) {
+    return { total: 0, new: 0, updated: 0, skipped: true };
+  }
 
   console.log(`[poller] Syncing commits for ${repoFullName}…`);
 
   try {
-    // Fetch recent commits from GitHub API (up to 100 per page)
+    // Fetch ALL commits from GitHub API with pagination
     const headers = { Accept: "application/vnd.github+json" };
     // If a GitHub token is configured, use it to avoid rate limits
     if (process.env.GITHUB_TOKEN) {
       headers.Authorization = `Bearer ${process.env.GITHUB_TOKEN}`;
     }
 
-    const { data: ghCommits } = await axios.get(
-      `${GITHUB_API}/repos/${repoFullName}/commits`,
-      {
-        headers,
-        params: {
-          per_page: 100,
-          since: hackathon.startTime.toISOString(),
-        },
-      }
-    );
+    let ghCommits = [];
+    let page = 1;
+    while (true) {
+      const { data, headers: respHeaders } = await axios.get(
+        `${GITHUB_API}/repos/${repoFullName}/commits`,
+        {
+          headers,
+          params: {
+            per_page: 100,
+            page,
+          },
+        }
+      );
+      ghCommits = ghCommits.concat(data);
+      // Stop when we get fewer than a full page (no more pages)
+      if (data.length < 100) break;
+      page++;
+    }
 
     let newCount = 0;
     let updatedCount = 0;
@@ -121,6 +134,9 @@ async function syncRepoCommits(team, hackathon) {
       );
     }
 
+    // Reset fail counter on success
+    _repoFailCount.delete(repoFullName);
+
     console.log(
       `[poller] ${repoFullName}: ${ghCommits.length} fetched, ${newCount} new, ${updatedCount} updated`
     );
@@ -130,8 +146,9 @@ async function syncRepoCommits(team, hackathon) {
     if (err.response?.status === 403) {
       console.warn(`[poller] Rate limited for ${repoFullName}. Add GITHUB_TOKEN to .env`);
     } else if (err.response?.status === 404) {
-      console.warn(`[poller] Repo not found: ${repoFullName} — skipping in future polls`);
-      _skippedRepos.add(repoFullName);
+      const newFail = (_repoFailCount.get(repoFullName) || 0) + 1;
+      _repoFailCount.set(repoFullName, newFail);
+      console.warn(`[poller] Repo not found: ${repoFullName} (attempt ${newFail}/${MAX_FAIL_COUNT})`);
     } else {
       console.error(`[poller] Error syncing ${repoFullName}:`, err.message);
     }
@@ -140,11 +157,23 @@ async function syncRepoCommits(team, hackathon) {
 }
 
 /**
+ * Clear the repo fail cache. Called when teams are re-seeded or updated.
+ */
+function clearRepoFailCache() {
+  _repoFailCount.clear();
+}
+
+/**
  * Sync all teams for a given hackathon.
  */
 async function syncAllTeams(hackathonId) {
   const teams = await Team.find({ hackathon: hackathonId }).populate("hackathon");
   const results = {};
+
+  // Reset fail cache for repos currently in the DB so re-seeded repos get a fresh start
+  for (const team of teams) {
+    _repoFailCount.delete(team.repoFullName);
+  }
 
   for (const team of teams) {
     results[team.repoFullName] = await syncRepoCommits(team, team.hackathon);
@@ -181,4 +210,4 @@ function startPollingLoop(intervalMs = 30000) {
   return setInterval(poll, intervalMs);
 }
 
-module.exports = { syncRepoCommits, syncAllTeams, startPollingLoop };
+module.exports = { syncRepoCommits, syncAllTeams, startPollingLoop, clearRepoFailCache };

@@ -14,6 +14,7 @@ export default function ParticipantDashboard() {
   const [summary, setSummary] = useState(null);
   const [commits, setCommits] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [syncing, setSyncing] = useState(false);
   const [lastUpdate, setLastUpdate] = useState(null);
   const [geoStatus, setGeoStatus] = useState("pending"); // pending | active | denied | unavailable
   const [currentLocation, setCurrentLocation] = useState(null);
@@ -48,15 +49,22 @@ export default function ParticipantDashboard() {
     [selectedTeam]
   );
 
-  // Initial fetch + polling
+  // On team load/change: sync with GitHub first, then fetch display data.
+  // Background polling (every 10s) only reads the DB — no extra API calls.
   useEffect(() => {
-    fetchData(true);
-
+    if (!selectedTeam) return;
+    setSyncing(true);
+    axios
+      .post(`/api/sync/team/${selectedTeam}`)
+      .catch((err) => console.warn("[sync]", err.message))
+      .finally(() => {
+        setSyncing(false);
+        fetchData(true);
+      });
     // Start polling
     intervalRef.current = setInterval(() => fetchData(false), POLL_INTERVAL);
-
     return () => clearInterval(intervalRef.current);
-  }, [fetchData]);
+  }, [fetchData]); // fetchData already changes when selectedTeam changes
 
   // ── Browser geolocation → report to backend ──────────
   const reportLocation = useCallback(() => {
@@ -250,7 +258,13 @@ export default function ParticipantDashboard() {
             (auto-refreshes every 10s)
           </span>
         </h2>
-        {loading ? <p>Loading…</p> : <CommitTimeline commits={commits} />}
+        {syncing ? (
+          <p style={{ color: "#58a6ff" }}>Syncing with GitHub…</p>
+        ) : loading ? (
+          <p>Loading…</p>
+        ) : (
+          <CommitTimeline commits={commits} />
+        )}
       </div>
     </>
   );
