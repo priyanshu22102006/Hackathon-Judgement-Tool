@@ -3,6 +3,64 @@ const router = express.Router();
 const Commit = require("../models/Commit");
 const Team = require("../models/Team");
 const { computeIntegrity } = require("../services/integrityScorer");
+const { verifyLocation } = require("../services/commitVerifier");
+
+/**
+ * POST /api/participant/location
+ *
+ * Participants call this periodically from their browser to report
+ * their current GPS position. The location is stored on the Team document
+ * and used to verify commits that arrive via the GitHub API poller
+ * (which doesn't carry an IP address).
+ *
+ * Body: { team, latitude, longitude, accuracy? }
+ */
+router.post("/location", async (req, res) => {
+  const { team: teamId, latitude, longitude, accuracy } = req.body;
+
+  if (!teamId) return res.status(400).json({ error: "team is required" });
+  if (latitude == null || longitude == null)
+    return res.status(400).json({ error: "latitude and longitude are required" });
+
+  const team = await Team.findById(teamId).populate("hackathon");
+  if (!team) return res.status(404).json({ error: "Team not found" });
+
+  // Update the team's last known location
+  team.lastKnownLocation = {
+    latitude,
+    longitude,
+    accuracy: accuracy || null,
+    reportedAt: new Date(),
+  };
+  await team.save();
+
+  // Determine location status relative to the venue
+  let locationStatus = "unknown";
+  if (team.hackathon?.venue) {
+    locationStatus = verifyLocation(
+      { latitude, longitude },
+      team.hackathon.venue
+    );
+  }
+
+  // Retroactively update any commits for this team that still have
+  // locationStatus "unknown" (e.g. from the poller which had no IP).
+  const result = await Commit.updateMany(
+    { team: team._id, locationStatus: "unknown" },
+    {
+      $set: {
+        location: { latitude, longitude, city: null, region: null, country: null },
+        locationStatus,
+      },
+    }
+  );
+
+  console.log(
+    `[location] Team ${team.name}: reported (${latitude}, ${longitude}) → ${locationStatus}. Updated ${result.modifiedCount} commit(s).`
+  );
+
+  res.json({ locationStatus, updatedCommits: result.modifiedCount });
+});
 
 /**
  * GET /api/participant/commits?team=<teamId>
