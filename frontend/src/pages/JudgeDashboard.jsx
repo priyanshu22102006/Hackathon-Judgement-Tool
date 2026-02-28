@@ -16,6 +16,15 @@ export default function JudgeDashboard() {
   const [lastUpdate, setLastUpdate] = useState(null);
   const intervalRef = useRef(null);
 
+  // Venue editor state
+  const [venueEditing, setVenueEditing] = useState(false);
+  const [venueLabel, setVenueLabel] = useState("");
+  const [venueLat, setVenueLat] = useState("");
+  const [venueLng, setVenueLng] = useState("");
+  const [venueRadius, setVenueRadius] = useState("");
+  const [venueSaving, setVenueSaving] = useState(false);
+  const [venueResult, setVenueResult] = useState(null);
+
   // Load hackathons on mount
   useEffect(() => {
     axios.get("/api/hackathons").then((res) => {
@@ -49,6 +58,44 @@ export default function JudgeDashboard() {
 
   const toggleExpand = (teamId) => {
     setExpandedTeam((prev) => (prev === teamId ? null : teamId));
+  };
+
+  // Sync venue form fields when overview data changes
+  useEffect(() => {
+    if (overview?.hackathon?.venue) {
+      const v = overview.hackathon.venue;
+      setVenueLabel(v.label || "");
+      setVenueLat(v.latitude ?? "");
+      setVenueLng(v.longitude ?? "");
+      setVenueRadius(v.radiusKm ?? 5);
+    }
+  }, [overview?.hackathon?.venue]);
+
+  // Save venue and re-verify all commits
+  const handleVenueSave = async () => {
+    if (!venueLat || !venueLng) return;
+    setVenueSaving(true);
+    setVenueResult(null);
+    try {
+      const { data } = await axios.put(
+        `/api/hackathons/${selectedHackathon}/venue`,
+        {
+          label: venueLabel,
+          latitude: parseFloat(venueLat),
+          longitude: parseFloat(venueLng),
+          radiusKm: parseFloat(venueRadius) || 5,
+        }
+      );
+      setVenueResult(data.reverified);
+      setVenueEditing(false);
+      // Refresh dashboard data so updated location statuses are visible
+      fetchData(false);
+    } catch (err) {
+      console.error("Venue save error:", err);
+      setVenueResult({ error: err.response?.data?.error || err.message });
+    } finally {
+      setVenueSaving(false);
+    }
   };
 
   // Aggregate stats
@@ -132,28 +179,186 @@ export default function JudgeDashboard() {
             </div>
           </div>
 
-          {/* ── Hackathon window info ──────────────── */}
+          {/* ── Hackathon window + Venue settings ──── */}
           {overview.hackathon && (
-            <div
-              className="card"
-              style={{
-                marginBottom: 24,
-                fontSize: "0.85rem",
-                color: "#8b949e",
-              }}
-            >
-              <strong>Window:</strong>{" "}
-              {new Date(overview.hackathon.startTime).toLocaleString()} →{" "}
-              {new Date(overview.hackathon.endTime).toLocaleString()}
-              &nbsp;&nbsp;|&nbsp;&nbsp;
-              <strong>Venue:</strong> {overview.hackathon.venue?.label} (
-              {overview.hackathon.venue?.latitude?.toFixed(4)},{" "}
-              {overview.hackathon.venue?.longitude?.toFixed(4)}) — radius{" "}
-              {overview.hackathon.venue?.radiusKm} km
-              &nbsp;&nbsp;|&nbsp;&nbsp;
-              <span style={{ fontSize: "0.75rem" }}>
-                Auto-refreshes every 10s
-              </span>
+            <div className="card" style={{ marginBottom: 24 }}>
+              <div
+                style={{
+                  fontSize: "0.85rem",
+                  color: "#8b949e",
+                  marginBottom: venueEditing ? 12 : 0,
+                }}
+              >
+                <strong>Window:</strong>{" "}
+                {new Date(overview.hackathon.startTime).toLocaleString()} →{" "}
+                {new Date(overview.hackathon.endTime).toLocaleString()}
+                &nbsp;&nbsp;|&nbsp;&nbsp;
+                <strong>Venue:</strong> {overview.hackathon.venue?.label} (
+                {overview.hackathon.venue?.latitude?.toFixed(4)},{" "}
+                {overview.hackathon.venue?.longitude?.toFixed(4)}) — radius{" "}
+                {overview.hackathon.venue?.radiusKm} km
+                &nbsp;&nbsp;
+                <button
+                  onClick={() => setVenueEditing(!venueEditing)}
+                  style={{
+                    background: "none",
+                    border: "1px solid #30363d",
+                    color: "#58a6ff",
+                    borderRadius: 6,
+                    padding: "2px 10px",
+                    cursor: "pointer",
+                    fontSize: "0.8rem",
+                  }}
+                >
+                  {venueEditing ? "Cancel" : "Edit Venue"}
+                </button>
+                &nbsp;&nbsp;
+                <span style={{ fontSize: "0.75rem" }}>
+                  Auto-refreshes every 10s
+                </span>
+              </div>
+
+              {/* ── Venue Editor ──────────────────────── */}
+              {venueEditing && (
+                <div
+                  style={{
+                    display: "flex",
+                    flexWrap: "wrap",
+                    gap: 10,
+                    alignItems: "flex-end",
+                    padding: "12px 0 0",
+                    borderTop: "1px solid #21262d",
+                  }}
+                >
+                  <div>
+                    <label style={{ display: "block", fontSize: "0.75rem", color: "#8b949e", marginBottom: 2 }}>
+                      Label
+                    </label>
+                    <input
+                      type="text"
+                      value={venueLabel}
+                      onChange={(e) => setVenueLabel(e.target.value)}
+                      placeholder="Venue name"
+                      style={inputStyle}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: "block", fontSize: "0.75rem", color: "#8b949e", marginBottom: 2 }}>
+                      Latitude
+                    </label>
+                    <input
+                      type="number"
+                      step="any"
+                      value={venueLat}
+                      onChange={(e) => setVenueLat(e.target.value)}
+                      placeholder="22.5726"
+                      style={inputStyle}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: "block", fontSize: "0.75rem", color: "#8b949e", marginBottom: 2 }}>
+                      Longitude
+                    </label>
+                    <input
+                      type="number"
+                      step="any"
+                      value={venueLng}
+                      onChange={(e) => setVenueLng(e.target.value)}
+                      placeholder="88.3639"
+                      style={inputStyle}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: "block", fontSize: "0.75rem", color: "#8b949e", marginBottom: 2 }}>
+                      Radius (km)
+                    </label>
+                    <input
+                      type="number"
+                      step="any"
+                      value={venueRadius}
+                      onChange={(e) => setVenueRadius(e.target.value)}
+                      placeholder="5"
+                      style={{ ...inputStyle, width: 70 }}
+                    />
+                  </div>
+                  <button
+                    onClick={handleVenueSave}
+                    disabled={venueSaving || !venueLat || !venueLng}
+                    style={{
+                      background: "#238636",
+                      color: "#fff",
+                      border: "none",
+                      borderRadius: 6,
+                      padding: "6px 16px",
+                      cursor: "pointer",
+                      fontWeight: 600,
+                      fontSize: "0.85rem",
+                      opacity: venueSaving ? 0.6 : 1,
+                    }}
+                  >
+                    {venueSaving ? "Saving…" : "Save & Re-verify"}
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (navigator.geolocation) {
+                        navigator.geolocation.getCurrentPosition(
+                          (pos) => {
+                            setVenueLat(pos.coords.latitude);
+                            setVenueLng(pos.coords.longitude);
+                          },
+                          () => alert("Could not get your location")
+                        );
+                      } else {
+                        alert("Geolocation not supported");
+                      }
+                    }}
+                    style={{
+                      background: "none",
+                      border: "1px solid #30363d",
+                      color: "#58a6ff",
+                      borderRadius: 6,
+                      padding: "6px 12px",
+                      cursor: "pointer",
+                      fontSize: "0.8rem",
+                    }}
+                  >
+                    📍 Use My Location
+                  </button>
+                </div>
+              )}
+
+              {/* Re-verify result toast */}
+              {venueResult && !venueResult.error && (
+                <div
+                  style={{
+                    marginTop: 10,
+                    padding: "8px 12px",
+                    borderRadius: 6,
+                    background: "rgba(82,196,26,0.1)",
+                    color: "#52c41a",
+                    fontSize: "0.82rem",
+                  }}
+                >
+                  Venue updated — re-verified {venueResult.total} commit(s):{" "}
+                  <strong>{venueResult.onSite}</strong> on-site,{" "}
+                  <strong>{venueResult.outside}</strong> outside,{" "}
+                  <strong>{venueResult.unknown}</strong> unknown
+                </div>
+              )}
+              {venueResult?.error && (
+                <div
+                  style={{
+                    marginTop: 10,
+                    padding: "8px 12px",
+                    borderRadius: 6,
+                    background: "rgba(248,81,73,0.1)",
+                    color: "#f85149",
+                    fontSize: "0.82rem",
+                  }}
+                >
+                  Error: {venueResult.error}
+                </div>
+              )}
             </div>
           )}
 
@@ -276,3 +481,13 @@ export default function JudgeDashboard() {
     </>
   );
 }
+
+const inputStyle = {
+  background: "#0d1117",
+  border: "1px solid #30363d",
+  borderRadius: 6,
+  color: "#c9d1d9",
+  padding: "6px 10px",
+  fontSize: "0.85rem",
+  width: 120,
+};

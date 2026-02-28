@@ -6,6 +6,7 @@ import FlagsList from "../components/FlagsList";
 import LiveIndicator from "../components/LiveIndicator";
 
 const POLL_INTERVAL = 10_000; // 10 seconds
+const LOCATION_INTERVAL = 15_000; // report location every 15 seconds
 
 export default function ParticipantDashboard() {
   const [teams, setTeams] = useState([]);
@@ -14,7 +15,10 @@ export default function ParticipantDashboard() {
   const [commits, setCommits] = useState([]);
   const [loading, setLoading] = useState(false);
   const [lastUpdate, setLastUpdate] = useState(null);
+  const [geoStatus, setGeoStatus] = useState("pending"); // pending | active | denied | unavailable
+  const [currentLocation, setCurrentLocation] = useState(null);
   const intervalRef = useRef(null);
+  const geoIntervalRef = useRef(null);
 
   // Load all teams on mount
   useEffect(() => {
@@ -54,6 +58,45 @@ export default function ParticipantDashboard() {
     return () => clearInterval(intervalRef.current);
   }, [fetchData]);
 
+  // ── Browser geolocation → report to backend ──────────
+  const reportLocation = useCallback(() => {
+    if (!selectedTeam) return;
+    if (!navigator.geolocation) {
+      setGeoStatus("unavailable");
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const { latitude, longitude, accuracy } = pos.coords;
+        setCurrentLocation({ latitude, longitude, accuracy });
+        setGeoStatus("active");
+
+        axios
+          .post("/api/participant/location", {
+            team: selectedTeam,
+            latitude,
+            longitude,
+            accuracy,
+          })
+          .catch((err) =>
+            console.warn("[geo] Failed to report location:", err.message)
+          );
+      },
+      (err) => {
+        console.warn("[geo] Geolocation error:", err.message);
+        setGeoStatus(err.code === 1 ? "denied" : "unavailable");
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 10000 }
+    );
+  }, [selectedTeam]);
+
+  useEffect(() => {
+    reportLocation(); // report immediately
+    geoIntervalRef.current = setInterval(reportLocation, LOCATION_INTERVAL);
+    return () => clearInterval(geoIntervalRef.current);
+  }, [reportLocation]);
+
   return (
     <>
       {/* ── Header bar ──────────────────────────── */}
@@ -84,6 +127,61 @@ export default function ParticipantDashboard() {
           </select>
         </div>
         <LiveIndicator lastUpdate={lastUpdate} />
+      </div>
+
+      {/* ── Location tracking status ─────────── */}
+      <div
+        style={{
+          marginBottom: 16,
+          padding: "8px 14px",
+          borderRadius: 8,
+          fontSize: "0.85rem",
+          background:
+            geoStatus === "active"
+              ? "rgba(82,196,26,0.12)"
+              : geoStatus === "denied"
+              ? "rgba(248,81,73,0.12)"
+              : "rgba(139,148,158,0.12)",
+          color:
+            geoStatus === "active"
+              ? "#52c41a"
+              : geoStatus === "denied"
+              ? "#f85149"
+              : "#8b949e",
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+        }}
+      >
+        <span style={{ fontSize: "1.1rem" }}>
+          {geoStatus === "active"
+            ? "📍"
+            : geoStatus === "denied"
+            ? "🚫"
+            : "⏳"}
+        </span>
+        {geoStatus === "active" && currentLocation && (
+          <span>
+            Location tracking active — ({currentLocation.latitude.toFixed(4)},{" "}
+            {currentLocation.longitude.toFixed(4)})
+            {currentLocation.accuracy && (
+              <span style={{ opacity: 0.7 }}>
+                {" "}
+                ±{Math.round(currentLocation.accuracy)}m
+              </span>
+            )}
+          </span>
+        )}
+        {geoStatus === "pending" && <span>Requesting location access…</span>}
+        {geoStatus === "denied" && (
+          <span>
+            Location access denied — please allow location to verify on-site
+            presence.
+          </span>
+        )}
+        {geoStatus === "unavailable" && (
+          <span>Geolocation not available in this browser.</span>
+        )}
       </div>
 
       {/* ── Integrity Overview ──────────────────── */}

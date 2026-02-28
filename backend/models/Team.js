@@ -17,6 +17,14 @@ const teamSchema = new mongoose.Schema(
 
     // Webhook id returned by GitHub so we can delete later
     webhookId: { type: Number, default: null },
+
+    // Last known GPS location reported by participant's browser
+    lastKnownLocation: {
+      latitude: { type: Number, default: null },
+      longitude: { type: Number, default: null },
+      accuracy: { type: Number, default: null }, // metres
+      reportedAt: { type: Date, default: null },
+    },
   },
   { timestamps: true }
 );

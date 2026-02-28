@@ -5,6 +5,10 @@ const { verifyTime, verifyLocation } = require("./commitVerifier");
 
 const GITHUB_API = "https://api.github.com";
 
+// How stale (in ms) a browser-reported location can be before we ignore it.
+// 30 minutes — if the participant hasn't refreshed in half an hour we can't trust it.
+const LOCATION_STALENESS_MS = 30 * 60 * 1000;
+
 // Cache repos that returned 404 so we don't spam the API
 const _skippedRepos = new Set();
 
@@ -81,8 +85,29 @@ async function syncRepoCommits(team, hackathon) {
 
       // Only overwrite location fields if we don't already have them from webhook
       if (!existing) {
-        commitData.locationStatus = "unknown";
-        commitData.location = {};
+        // Try to use the team's last known browser-reported location
+        const loc = team.lastKnownLocation;
+        const isFresh =
+          loc?.reportedAt &&
+          Date.now() - new Date(loc.reportedAt).getTime() < LOCATION_STALENESS_MS;
+
+        if (isFresh && loc.latitude != null && loc.longitude != null) {
+          const locationStatus = verifyLocation(
+            { latitude: loc.latitude, longitude: loc.longitude },
+            hackathon.venue
+          );
+          commitData.location = {
+            latitude: loc.latitude,
+            longitude: loc.longitude,
+            city: null,
+            region: null,
+            country: null,
+          };
+          commitData.locationStatus = locationStatus;
+        } else {
+          commitData.locationStatus = "unknown";
+          commitData.location = {};
+        }
         commitData.ip = null;
         newCount++;
       } else {
