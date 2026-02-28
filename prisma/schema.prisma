@@ -1,0 +1,153 @@
+// CommitLens – Prisma schema (PostgreSQL)
+// Models included: User, Team, Hackathon
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  PARTICIPANT
+  ORGANIZER
+  JUDGE
+  MENTOR
+}
+
+enum OrganizerDesignation {
+  LEAD_ORGANIZER
+  TECHNICAL_COORDINATOR
+  OPERATIONS
+  SPONSORSHIP
+  COMMUNITY
+  OTHER
+}
+
+enum DomainExpertise {
+  AI_ML
+  WEB3
+  FULL_STACK
+  FRONTEND
+  BACKEND
+  DEVOPS
+  DATA_SCIENCE
+  SECURITY
+  MOBILE
+  PRODUCT
+  DESIGN
+  OTHER
+}
+
+model Hackathon {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  name String
+
+  /// Participant-facing identifier used to join an event.
+  /// This corresponds to “Hackathon Invite Code / Event ID”.
+  eventCode String @unique
+
+  /// Judge/Mentor access token used to link accounts to an event.
+  judgeMentorAccessToken String @unique
+
+  /// Teams participating in this hackathon.
+  teams Team[]
+
+  /// Users linked to this hackathon (Organizers, Judges, Mentors).
+  /// Participants are typically linked via Team -> Hackathon.
+  users User[]
+
+  @@index([createdAt])
+}
+
+model Team {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  hackathonId String
+  hackathon   Hackathon @relation(fields: [hackathonId], references: [id], onDelete: Cascade)
+
+  name String
+
+  /// GitHub usernames for teammates (used for cross-checking collaboration).
+  memberGithubUsernames String[]
+
+  /// Registered project repository link.
+  repositoryUrl String
+
+  /// Primary tech stack planned (populates Judge dashboard).
+  primaryTechStack String[]
+
+  /// Participant user accounts associated to this team.
+  participants User[]
+
+  @@unique([hackathonId, name])
+  @@index([hackathonId])
+}
+
+model User {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  role UserRole
+
+  /// Display name / legal name depending on role.
+  name  String
+  email String @unique
+
+  /// Used by OAuth flows (NextAuth-compatible).
+  emailVerified DateTime?
+  image         String?
+
+  /// For GitHub OAuth identities (participants).
+  githubId       String? @unique
+  githubUsername String?
+
+  /// For email/password roles (organizers, judges, mentors).
+  /// Store a hash (never store plaintext).
+  passwordHash String?
+
+  /// Participant fallback contact email (separate from GitHub primary email).
+  preferredContactEmail String?
+
+  /// Mandatory consent flags for live commit tracking + IP-based geofence verification.
+  consentCommitTracking Boolean @default(false)
+  consentIpLocation     Boolean @default(false)
+
+  /// Participant team association.
+  teamId String?
+  team   Team? @relation(fields: [teamId], references: [id], onDelete: SetNull)
+
+  /// Hackathon association for Organizers/Judges/Mentors.
+  hackathonId String?
+  hackathon   Hackathon? @relation(fields: [hackathonId], references: [id], onDelete: SetNull)
+
+  // -------------------------
+  // Organizer-specific fields
+  // -------------------------
+
+  organizationName     String?
+  organizerPhoneNumber String?
+  organizerDesignation OrganizerDesignation?
+  organizationLogoUrl  String?
+
+  // -------------------------
+  // Judge/Mentor-specific
+  // -------------------------
+
+  domainExpertise          DomainExpertise?
+  linkedinOrPortfolioUrl   String?
+  availabilityShift        String?
+  conflictOfInterestAccepted Boolean @default(false)
+
+  @@index([role])
+  @@index([hackathonId])
+  @@index([teamId])
+}

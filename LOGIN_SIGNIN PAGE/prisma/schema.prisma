@@ -1,0 +1,463 @@
+// ============================================================================
+// HackCheck - Prisma Schema
+// Hackathon Management Platform with Real-time GitHub Commit Tracking
+// ============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================================
+// ENUMS
+// ============================================================================
+
+enum UserRole {
+  PARTICIPANT
+  ORGANIZER
+  JUDGE
+  MENTOR
+}
+
+enum OrganizerDesignation {
+  LEAD_ORGANIZER
+  TECHNICAL_COORDINATOR
+  EVENT_MANAGER
+  VOLUNTEER_COORDINATOR
+  SPONSORSHIP_LEAD
+  MARKETING_LEAD
+}
+
+enum DomainExpertise {
+  AI_ML
+  WEB3
+  FULL_STACK
+  MOBILE
+  CLOUD_DEVOPS
+  CYBERSECURITY
+  DATA_SCIENCE
+  IOT
+  GAME_DEV
+  AR_VR
+}
+
+enum HackathonStatus {
+  DRAFT
+  REGISTRATION_OPEN
+  REGISTRATION_CLOSED
+  IN_PROGRESS
+  JUDGING
+  COMPLETED
+  CANCELLED
+}
+
+enum TeamStatus {
+  PENDING
+  APPROVED
+  DISQUALIFIED
+  COMPLETED
+}
+
+// ============================================================================
+// USER MODEL - Base user with role-specific relations
+// ============================================================================
+
+model User {
+  id                String    @id @default(cuid())
+  email             String    @unique
+  emailVerified     DateTime?
+  name              String
+  password          String?   // Null for OAuth users (participants)
+  role              UserRole
+  avatarUrl         String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  lastLoginAt       DateTime?
+
+  // OAuth Accounts (GitHub, etc.)
+  accounts          Account[]
+  sessions          Session[]
+
+  // Role-specific profiles
+  participantProfile ParticipantProfile?
+  organizerProfile   OrganizerProfile?
+  judgeProfile       JudgeProfile?
+
+  @@map("users")
+}
+
+// ============================================================================
+// OAUTH ACCOUNTS (NextAuth.js)
+// ============================================================================
+
+model Account {
+  id                 String  @id @default(cuid())
+  userId             String
+  type               String
+  provider           String
+  providerAccountId  String
+  refresh_token      String? @db.Text
+  access_token       String? @db.Text
+  expires_at         Int?
+  token_type         String?
+  scope              String?
+  id_token           String? @db.Text
+  session_state      String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+// ============================================================================
+// PARTICIPANT PROFILE
+// ============================================================================
+
+model ParticipantProfile {
+  id                   String   @id @default(cuid())
+  userId               String   @unique
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // GitHub OAuth Data
+  githubId             String   @unique
+  githubUsername       String   @unique
+  githubAccessToken    String?  @db.Text
+  
+  // Contact
+  preferredEmail       String?  // Fallback email separate from GitHub
+  
+  // Consent Tracking
+  commitTrackingConsent     Boolean  @default(false)
+  locationTrackingConsent   Boolean  @default(false)
+  consentTimestamp          DateTime?
+  
+  // IP/Location for geo-fence verification
+  lastKnownIp               String?
+  lastKnownLocation         String?
+  
+  // Relations
+  teamMemberships      TeamMember[]
+  
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  @@map("participant_profiles")
+}
+
+// ============================================================================
+// ORGANIZER PROFILE
+// ============================================================================
+
+model OrganizerProfile {
+  id                   String   @id @default(cuid())
+  userId               String   @unique
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Work Details
+  organizationName     String
+  designation          OrganizerDesignation
+  contactPhone         String
+  organizationLogoUrl  String?
+  
+  // Managed Hackathons
+  hackathons           Hackathon[]
+  
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  @@map("organizer_profiles")
+}
+
+// ============================================================================
+// JUDGE/MENTOR PROFILE
+// ============================================================================
+
+model JudgeProfile {
+  id                   String   @id @default(cuid())
+  userId               String   @unique
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Role Type (Judge or Mentor)
+  isMentor             Boolean  @default(false) // false = Judge, true = Mentor
+  
+  // Professional Details
+  domainExpertise      DomainExpertise[]
+  linkedinUrl          String?
+  portfolioUrl         String?
+  
+  // Availability (for Mentors)
+  availabilityStart    String?  // e.g., "09:00"
+  availabilityEnd      String?  // e.g., "17:00"
+  availabilityTimezone String?  // e.g., "America/New_York"
+  
+  // Conflict of Interest
+  conflictDeclaration  Boolean  @default(false)
+  conflictTimestamp    DateTime?
+  
+  // Hackathon Assignments
+  hackathonAssignments HackathonJudge[]
+  
+  // Evaluations & Mentoring
+  evaluations          ProjectEvaluation[]
+  mentoringSessions    MentoringSession[]
+  
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  @@map("judge_profiles")
+}
+
+// ============================================================================
+// HACKATHON MODEL
+// ============================================================================
+
+model Hackathon {
+  id                   String          @id @default(cuid())
+  
+  // Basic Info
+  name                 String
+  description          String?         @db.Text
+  bannerUrl            String?
+  
+  // Organizer
+  organizerId          String
+  organizer            OrganizerProfile @relation(fields: [organizerId], references: [id])
+  
+  // Timing
+  registrationStart    DateTime
+  registrationEnd      DateTime
+  eventStart           DateTime
+  eventEnd             DateTime
+  
+  // Status
+  status               HackathonStatus @default(DRAFT)
+  
+  // Access Codes
+  participantInviteCode String        @unique @default(cuid())
+  judgeAccessToken      String        @unique @default(cuid())
+  
+  // Rules & Settings
+  maxTeamSize          Int            @default(4)
+  minTeamSize          Int            @default(2)
+  allowedTechStacks    String[]       // Array of allowed technologies
+  geoFenceEnabled      Boolean        @default(false)
+  geoFenceLocation     String?        // JSON location data
+  
+  // Relations
+  teams                Team[]
+  judges               HackathonJudge[]
+  
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @updatedAt
+
+  @@map("hackathons")
+}
+
+// ============================================================================
+// HACKATHON JUDGE ASSIGNMENT
+// ============================================================================
+
+model HackathonJudge {
+  id             String       @id @default(cuid())
+  hackathonId    String
+  hackathon      Hackathon    @relation(fields: [hackathonId], references: [id], onDelete: Cascade)
+  judgeId        String
+  judge          JudgeProfile @relation(fields: [judgeId], references: [id], onDelete: Cascade)
+  
+  // Assignment Details
+  assignedAt     DateTime     @default(now())
+  isActive       Boolean      @default(true)
+  
+  @@unique([hackathonId, judgeId])
+  @@map("hackathon_judges")
+}
+
+// ============================================================================
+// TEAM MODEL
+// ============================================================================
+
+model Team {
+  id                   String       @id @default(cuid())
+  
+  // Basic Info
+  name                 String
+  description          String?
+  
+  // Hackathon
+  hackathonId          String
+  hackathon            Hackathon    @relation(fields: [hackathonId], references: [id])
+  
+  // GitHub Repository
+  repositoryUrl        String
+  repositoryOwner      String       // GitHub org/user
+  repositoryName       String       // Repo name
+  
+  // Tech Stack
+  techStack            String[]     // e.g., ["React", "Node.js", "PostgreSQL"]
+  
+  // Status & Scoring
+  status               TeamStatus   @default(PENDING)
+  fairnessScore        Float?       // Calculated from commit tracking
+  
+  // Members
+  members              TeamMember[]
+  
+  // Evaluations
+  evaluations          ProjectEvaluation[]
+  
+  // Commit Tracking
+  commitLogs           CommitLog[]
+  
+  createdAt            DateTime     @default(now())
+  updatedAt            DateTime     @updatedAt
+
+  @@unique([hackathonId, name])
+  @@map("teams")
+}
+
+// ============================================================================
+// TEAM MEMBER
+// ============================================================================
+
+model TeamMember {
+  id                   String              @id @default(cuid())
+  
+  teamId               String
+  team                 Team                @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  
+  participantId        String
+  participant          ParticipantProfile  @relation(fields: [participantId], references: [id])
+  
+  // Role in Team
+  isLeader             Boolean             @default(false)
+  
+  // Join Info
+  joinedAt             DateTime            @default(now())
+  
+  @@unique([teamId, participantId])
+  @@map("team_members")
+}
+
+// ============================================================================
+// COMMIT LOG (for fairness tracking)
+// ============================================================================
+
+model CommitLog {
+  id                   String   @id @default(cuid())
+  
+  teamId               String
+  team                 Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  
+  // Commit Details
+  sha                  String
+  message              String
+  authorGithubUsername String
+  authorEmail          String?
+  
+  // Timing & Tracking
+  timestamp            DateTime
+  linesAdded           Int
+  linesDeleted         Int
+  filesChanged         Int
+  
+  // Verification
+  ipAddress            String?
+  location             String?  // Geo-location data
+  isVerified           Boolean  @default(false)
+  isSuspicious         Boolean  @default(false)
+  suspiciousReason     String?
+  
+  createdAt            DateTime @default(now())
+
+  @@unique([teamId, sha])
+  @@map("commit_logs")
+}
+
+// ============================================================================
+// PROJECT EVALUATION (Judge)
+// ============================================================================
+
+model ProjectEvaluation {
+  id                   String       @id @default(cuid())
+  
+  teamId               String
+  team                 Team         @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  
+  judgeId              String
+  judge                JudgeProfile @relation(fields: [judgeId], references: [id])
+  
+  // Scores (1-10)
+  innovationScore      Int?
+  technicalScore       Int?
+  presentationScore    Int?
+  impactScore          Int?
+  overallScore         Float?
+  
+  // Feedback
+  feedback             String?      @db.Text
+  privateNotes         String?      @db.Text
+  
+  // Status
+  isComplete           Boolean      @default(false)
+  completedAt          DateTime?
+  
+  createdAt            DateTime     @default(now())
+  updatedAt            DateTime     @updatedAt
+
+  @@unique([teamId, judgeId])
+  @@map("project_evaluations")
+}
+
+// ============================================================================
+// MENTORING SESSION (Mentor)
+// ============================================================================
+
+model MentoringSession {
+  id                   String       @id @default(cuid())
+  
+  mentorId             String
+  mentor               JudgeProfile @relation(fields: [mentorId], references: [id])
+  
+  // Session Details
+  teamName             String?
+  topic                String
+  description          String?      @db.Text
+  
+  // Status
+  status               String       @default("pending") // pending, in_progress, completed
+  priority             String       @default("medium")  // low, medium, high, urgent
+  
+  // Timing
+  requestedAt          DateTime     @default(now())
+  startedAt            DateTime?
+  completedAt          DateTime?
+  
+  // Notes
+  mentorNotes          String?      @db.Text
+  
+  @@map("mentoring_sessions")
+}
