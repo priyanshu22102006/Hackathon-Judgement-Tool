@@ -10,6 +10,9 @@ const participantRoutes = require("./routes/participant");
 const judgeRoutes = require("./routes/judge");
 const syncRoutes = require("./routes/sync");
 const { startPollingLoop } = require("./services/githubPoller");
+const SEED_CONFIG = require("./seed");
+const { seed } = require("./seed");
+const Team = require("./models/Team");
 
 const app = express();
 
@@ -46,7 +49,23 @@ process.on("unhandledRejection", (reason) => {
 const PORT = process.env.PORT || 5000;
 
 connectDB()
-  .then(() => {
+  .then(async () => {
+    // ── Auto-reseed if seed.js config changed ────────────────────────────
+    // When you change repoFullName (or any field) in seed.js and save,
+    // nodemon restarts the server here. We detect the mismatch and reseed
+    // automatically so the new repo's commits are ready on the first refresh.
+    const existingTeam = await Team.findOne({});
+    const configuredRepo = SEED_CONFIG.team?.repoFullName;
+    if (!existingTeam || existingTeam.repoFullName !== configuredRepo) {
+      console.log(
+        `[auto-seed] Repo mismatch: DB has "${
+          existingTeam?.repoFullName ?? "(none)"
+        }", config says "${configuredRepo}". Re-seeding now…`
+      );
+      await seed(true); // true = DB already connected, don't reconnect
+    }
+    // ────────────────────────────────────────────────────────────────────
+
     app.listen(PORT, () => {
       console.log(`Server running on port ${PORT}`);
 

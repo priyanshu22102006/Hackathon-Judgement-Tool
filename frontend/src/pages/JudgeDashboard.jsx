@@ -13,6 +13,7 @@ export default function JudgeDashboard() {
   const [overview, setOverview] = useState(null);
   const [expandedTeam, setExpandedTeam] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [syncing, setSyncing] = useState(false);
   const [lastUpdate, setLastUpdate] = useState(null);
   const intervalRef = useRef(null);
 
@@ -49,12 +50,21 @@ export default function JudgeDashboard() {
     [selectedHackathon]
   );
 
-  // Initial fetch + polling
+  // On hackathon load/change: sync with GitHub first, then fetch display data.
+  // Background polling (every 10s) only reads the DB — no extra API calls.
   useEffect(() => {
-    fetchData(true);
+    if (!selectedHackathon) return;
+    setSyncing(true);
+    axios
+      .post(`/api/sync/hackathon/${selectedHackathon}`)
+      .catch((err) => console.warn("[sync]", err.message))
+      .finally(() => {
+        setSyncing(false);
+        fetchData(true);
+      });
     intervalRef.current = setInterval(() => fetchData(false), POLL_INTERVAL);
     return () => clearInterval(intervalRef.current);
-  }, [fetchData]);
+  }, [fetchData]); // fetchData already changes when selectedHackathon changes
 
   const toggleExpand = (teamId) => {
     setExpandedTeam((prev) => (prev === teamId ? null : teamId));
@@ -142,7 +152,8 @@ export default function JudgeDashboard() {
         <LiveIndicator lastUpdate={lastUpdate} />
       </div>
 
-      {loading && <p>Loading…</p>}
+      {syncing && <p style={{ color: "#58a6ff" }}>Syncing with GitHub…</p>}
+      {loading && !syncing && <p>Loading…</p>}
 
       {overview && !loading && (
         <>
