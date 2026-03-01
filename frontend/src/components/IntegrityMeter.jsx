@@ -1,112 +1,88 @@
-/**
- * IntegrityMeter – circular score gauge with verdict.
- */
 export default function IntegrityMeter({ integrity }) {
   if (!integrity) return null;
 
-  const { totalScore, verdict, verdictColor, time, location, pattern } =
-    integrity;
+  const {
+    totalScore = 0,
+    verdict = "\u2014",
+    verdictColor = "#8b949e",
+    repoStatus,
+    repoStatusColor,
+    time,
+    location,
+    frequencyCurve,
+    metricPadding,
+    codeDump,
+    // legacy fallback
+    pattern,
+  } = integrity;
 
-  // SVG circular gauge
-  const size = 140;
-  const stroke = 10;
-  const radius = (size - stroke) / 2;
+  const radius = 50;
+  const strokeWidth = 10;
   const circumference = 2 * Math.PI * radius;
-  const progress = (totalScore / 100) * circumference;
+  const offset = circumference - (totalScore / 100) * circumference;
 
   return (
-    <div className="integrity-meter">
-      <div className="integrity-gauge">
-        <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
-          {/* Background circle */}
+    <div style={{ display: "flex", alignItems: "flex-start", gap: 28, flexWrap: "wrap" }}>
+      {/* ── Circular score gauge ────────────────── */}
+      <div style={{ textAlign: "center" }}>
+        <svg width="130" height="130" viewBox="0 0 130 130">
+          <circle cx="65" cy="65" r={radius} fill="none" stroke="#21262d" strokeWidth={strokeWidth} />
           <circle
-            cx={size / 2}
-            cy={size / 2}
-            r={radius}
-            fill="none"
-            stroke="#21262d"
-            strokeWidth={stroke}
+            cx="65" cy="65" r={radius} fill="none"
+            stroke={verdictColor} strokeWidth={strokeWidth}
+            strokeDasharray={circumference} strokeDashoffset={offset}
+            strokeLinecap="round" transform="rotate(-90 65 65)"
+            style={{ transition: "stroke-dashoffset 0.6s ease" }}
           />
-          {/* Progress arc */}
-          <circle
-            cx={size / 2}
-            cy={size / 2}
-            r={radius}
-            fill="none"
-            stroke={verdictColor}
-            strokeWidth={stroke}
-            strokeDasharray={circumference}
-            strokeDashoffset={circumference - progress}
-            strokeLinecap="round"
-            transform={`rotate(-90 ${size / 2} ${size / 2})`}
-            style={{ transition: "stroke-dashoffset 0.8s ease" }}
-          />
-          {/* Score text */}
-          <text
-            x={size / 2}
-            y={size / 2 - 8}
-            textAnchor="middle"
-            dominantBaseline="central"
-            fill={verdictColor}
-            fontSize="28"
-            fontWeight="700"
-          >
-            {totalScore}
-          </text>
-          <text
-            x={size / 2}
-            y={size / 2 + 18}
-            textAnchor="middle"
-            dominantBaseline="central"
-            fill="#8b949e"
-            fontSize="11"
-          >
-            / 100
-          </text>
+          <text x="65" y="58" textAnchor="middle" dominantBaseline="central"
+            fill="#f0f6fc" fontSize="28" fontWeight="700">{totalScore}</text>
+          <text x="65" y="80" textAnchor="middle" dominantBaseline="central"
+            fill="#8b949e" fontSize="12">/ 100</text>
         </svg>
-        <div className="verdict-label" style={{ color: verdictColor }}>
+        <div style={{ fontWeight: 700, fontSize: "0.95rem", color: verdictColor, marginTop: 4, letterSpacing: 1 }}>
           {verdict}
         </div>
+        {repoStatus && (
+          <div style={{
+            marginTop: 6,
+            padding: "3px 10px",
+            borderRadius: 12,
+            fontSize: "0.72rem",
+            fontWeight: 700,
+            letterSpacing: 0.5,
+            background: `${repoStatusColor}18`,
+            color: repoStatusColor,
+            display: "inline-block",
+          }}>
+            {repoStatus.replace(/_/g, " ")}
+          </div>
+        )}
       </div>
 
-      <div className="integrity-breakdown">
-        <ScoreBar label="Time" score={time.score} max={50} color="#58a6ff" />
-        <ScoreBar
-          label="Location"
-          score={location.score}
-          max={30}
-          color="#a371f7"
-        />
-        <ScoreBar
-          label="Pattern"
-          score={pattern.score}
-          max={20}
-          color="#d29922"
-        />
+      {/* ── Score breakdown bars ────────────────── */}
+      <div style={{ minWidth: 220, flex: "0 0 auto" }}>
+        {time && <ScoreBar label="Time Window" score={time.score} max={25} color="#58a6ff" />}
+        {location && <ScoreBar label="Location" score={location.score} max={15} color="#58a6ff" />}
+        {frequencyCurve && <ScoreBar label="Frequency Curve" score={frequencyCurve.score} max={20} color="#a371f7" />}
+        {metricPadding && <ScoreBar label="Metric Padding" score={metricPadding.score} max={20} color="#f0883e" />}
+        {codeDump && <ScoreBar label="Code Dump" score={codeDump.score} max={20} color="#f85149" />}
+        {/* Legacy fallback for old data */}
+        {!frequencyCurve && pattern && <ScoreBar label="Pattern" score={pattern.score} max={20} color="#52c41a" />}
       </div>
     </div>
   );
 }
 
 function ScoreBar({ label, score, max, color }) {
-  const pct = Math.round((score / max) * 100);
+  const pct = max > 0 ? (score / max) * 100 : 0;
   return (
-    <div className="score-bar">
-      <div className="score-bar-header">
-        <span className="score-bar-label">{label}</span>
-        <span className="score-bar-value">
-          {score}/{max}
-        </span>
+    <div style={{ marginBottom: 10 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.8rem", color: "#8b949e", marginBottom: 3 }}>
+        <span>{label}</span>
+        <span><strong style={{ color: "#c9d1d9" }}>{score}</strong>/{max}</span>
       </div>
-      <div className="score-bar-track">
-        <div
-          className="score-bar-fill"
-          style={{
-            width: `${pct}%`,
-            background: color,
-            transition: "width 0.6s ease",
-          }}
-        />
+      <div style={{ height: 6, borderRadius: 3, background: "#21262d", overflow: "hidden" }}>
+        <div style={{ width: `${pct}%`, height: "100%", borderRadius: 3, background: color, transition: "width 0.4s ease" }} />
       </div>
     </div>
   );

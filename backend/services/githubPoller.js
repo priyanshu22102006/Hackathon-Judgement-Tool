@@ -42,17 +42,38 @@ async function syncRepoCommits(team, hackathon) {
 
     let ghCommits = [];
     let page = 1;
+    let useHeaders = { ...headers };
     while (true) {
-      const { data, headers: respHeaders } = await axios.get(
-        `${GITHUB_API}/repos/${repoFullName}/commits`,
-        {
-          headers,
-          params: {
-            per_page: 100,
-            page,
-          },
+      let data;
+      try {
+        const resp = await axios.get(
+          `${GITHUB_API}/repos/${repoFullName}/commits`,
+          {
+            headers: useHeaders,
+            params: {
+              per_page: 100,
+              page,
+            },
+          }
+        );
+        data = resp.data;
+      } catch (reqErr) {
+        // If 401 with a token, retry once without auth (works for public repos)
+        if (reqErr.response?.status === 401 && useHeaders.Authorization) {
+          console.warn(`[poller] Token returned 401 for ${repoFullName}, retrying without auth…`);
+          delete useHeaders.Authorization;
+          const resp = await axios.get(
+            `${GITHUB_API}/repos/${repoFullName}/commits`,
+            {
+              headers: useHeaders,
+              params: { per_page: 100, page },
+            }
+          );
+          data = resp.data;
+        } else {
+          throw reqErr;
         }
-      );
+      }
       ghCommits = ghCommits.concat(data);
       // Stop when we get fewer than a full page (no more pages)
       if (data.length < 100) break;
@@ -143,7 +164,11 @@ async function syncRepoCommits(team, hackathon) {
 
     return { total: ghCommits.length, new: newCount, updated: updatedCount };
   } catch (err) {
-    if (err.response?.status === 403) {
+    if (err.response?.status === 409) {
+      // 409 Conflict = repo exists but is empty (no commits yet)
+      console.warn(`[poller] Repo ${repoFullName} is empty (no commits yet). Nothing to sync.`);
+      return { total: 0, new: 0, updated: 0, empty: true };
+    } else if (err.response?.status === 403) {
       console.warn(`[poller] Rate limited for ${repoFullName}. Add GITHUB_TOKEN to .env`);
     } else if (err.response?.status === 404) {
       const newFail = (_repoFailCount.get(repoFullName) || 0) + 1;
@@ -154,6 +179,108 @@ async function syncRepoCommits(team, hackathon) {
     }
     return { total: 0, new: 0, updated: 0, error: err.message };
   }
+}
+
+/**
+ * Deep-sync: fetch per-commit file details (filenames, additions, deletions)
+ * from the GitHub API for every commit that is missing this data.
+ *
+ * This is more expensive (1 API call per commit) so it is triggered
+ * explicitly by the judge via "Run Deep Analysis".
+ */
+async function deepSyncRepoCommits(team, hackathon) {
+  const repoFullName = team.repoFullName;
+  console.log(`[deep-sync] Fetching file details for ${repoFullName}…`);
+
+  const headers = { Accept: "application/vnd.github+json" };
+  if (process.env.GITHUB_TOKEN) {
+    headers.Authorization = `Bearer ${process.env.GITHUB_TOKEN}`;
+  }
+
+  const commits = await Commit.find({ team: team._id });
+  let enriched = 0;
+
+  for (const commit of commits) {
+    // Skip commits that already have file details AND line stats
+    if (
+      commit.filesChanged &&
+      commit.filesChanged.length > 0 &&
+      commit.additions != null
+    ) {
+      continue;
+    }
+
+    try {
+      let commitData;
+      try {
+        const resp = await axios.get(
+          `${GITHUB_API}/repos/${repoFullName}/commits/${commit.commitHash}`,
+          { headers }
+        );
+        commitData = resp.data;
+      } catch (reqErr) {
+        if (reqErr.response?.status === 401 && headers.Authorization) {
+          console.warn(`[deep-sync] Token 401, retrying without auth…`);
+          delete headers.Authorization;
+          const resp = await axios.get(
+            `${GITHUB_API}/repos/${repoFullName}/commits/${commit.commitHash}`,
+            { headers }
+          );
+          commitData = resp.data;
+        } else {
+          throw reqErr;
+        }
+      }
+
+      const filesChanged = (commitData.files || []).map((f) => ({
+        filename: f.filename,
+        status: f.status,
+        additions: f.additions || 0,
+        deletions: f.deletions || 0,
+      }));
+
+      await Commit.findByIdAndUpdate(commit._id, {
+        filesChanged,
+        additions: commitData.stats?.additions || 0,
+        deletions: commitData.stats?.deletions || 0,
+      });
+
+      enriched++;
+
+      // Small delay to be kind to GitHub rate limits
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    } catch (err) {
+      if (err.response?.status === 403) {
+        console.warn(`[deep-sync] Rate limited. Stopping.`);
+        break;
+      }
+      console.warn(
+        `[deep-sync] Failed to fetch ${commit.commitHash}: ${err.message}`
+      );
+    }
+  }
+
+  console.log(
+    `[deep-sync] ${repoFullName}: enriched ${enriched}/${commits.length} commits`
+  );
+  return { total: commits.length, enriched };
+}
+
+/**
+ * Deep-sync all teams for a given hackathon.
+ */
+async function deepSyncAllTeams(hackathonId) {
+  const teams = await Team.find({ hackathon: hackathonId }).populate(
+    "hackathon"
+  );
+  const results = {};
+  for (const team of teams) {
+    results[team.repoFullName] = await deepSyncRepoCommits(
+      team,
+      team.hackathon
+    );
+  }
+  return results;
 }
 
 /**
@@ -210,4 +337,4 @@ function startPollingLoop(intervalMs = 30000) {
   return setInterval(poll, intervalMs);
 }
 
-module.exports = { syncRepoCommits, syncAllTeams, startPollingLoop, clearRepoFailCache };
+module.exports = { syncRepoCommits, syncAllTeams, startPollingLoop, clearRepoFailCache, deepSyncRepoCommits, deepSyncAllTeams };

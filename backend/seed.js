@@ -34,7 +34,7 @@ const SEED_CONFIG = {
   },
   team: {
     name: "Alpha Coders",
-    repoFullName: "pritimmondall/demo",   // ← change this to any repo
+    repoFullName: "priyanshu22102006/luffy-web",   // ← change this to any repo
     // repoFullName: "priyanshu22102006/Coding",
     members: ["alice", "bob", "charlie"],
   },

@@ -27,8 +27,14 @@ const commitSchema = new mongoose.Schema(
       {
         filename: String,
         status: String, // added | modified | removed
+        additions: { type: Number, default: 0 },
+        deletions: { type: Number, default: 0 },
       },
     ],
+
+    // Aggregate line-change stats (populated by deep sync)
+    additions: { type: Number, default: null },
+    deletions: { type: Number, default: null },
 
     // ── Verification results ─────────────────────────────
     timeValid: {

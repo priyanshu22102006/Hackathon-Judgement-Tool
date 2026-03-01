@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const Team = require("../models/Team");
-const { syncRepoCommits, syncAllTeams } = require("../services/githubPoller");
+const { syncRepoCommits, syncAllTeams, deepSyncAllTeams } = require("../services/githubPoller");
 
 /**
  * POST /api/sync/team/:teamId
@@ -31,6 +31,21 @@ router.post("/hackathon/:hackathonId", async (req, res) => {
     res.json({ message: "Sync complete", results });
   } catch (err) {
     console.error("Sync error:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * POST /api/sync/hackathon/:hackathonId/deep
+ * Deep sync: fetch per-commit file details (filenames, additions, deletions)
+ * for all teams. More expensive but needed for padding / dump analysis.
+ */
+router.post("/hackathon/:hackathonId/deep", async (req, res) => {
+  try {
+    const results = await deepSyncAllTeams(req.params.hackathonId);
+    res.json({ message: "Deep sync complete", results });
+  } catch (err) {
+    console.error("Deep sync error:", err);
     res.status(500).json({ error: err.message });
   }
 });

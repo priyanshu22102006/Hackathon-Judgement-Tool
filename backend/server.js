@@ -9,6 +9,8 @@ const teamRoutes = require("./routes/team");
 const participantRoutes = require("./routes/participant");
 const judgeRoutes = require("./routes/judge");
 const syncRoutes = require("./routes/sync");
+const taskRoutes = require("./routes/task");
+const remarkRoutes = require("./routes/remark");
 const { startPollingLoop } = require("./services/githubPoller");
 const SEED_CONFIG = require("./seed");
 const { seed } = require("./seed");
@@ -32,6 +34,33 @@ app.use("/api/teams", teamRoutes);
 app.use("/api/participant", participantRoutes);
 app.use("/api/judge", judgeRoutes);
 app.use("/api/sync", syncRoutes);
+app.use("/api/tasks", taskRoutes);
+app.use("/api/remarks", remarkRoutes);
+
+// ── IP-based geolocation fallback ─────────────────────
+app.get("/api/geolocation", async (_req, res) => {
+  try {
+    const axiosLib = require("axios");
+    const { data } = await axiosLib.get("https://ipapi.co/json/", {
+      headers: { "User-Agent": "HackathonMonitor/1.0" },
+      timeout: 5000,
+    });
+    if (data.latitude && data.longitude) {
+      return res.json({
+        latitude: data.latitude,
+        longitude: data.longitude,
+        city: data.city || null,
+        region: data.region || null,
+        country: data.country_name || null,
+        source: "ip",
+      });
+    }
+    res.status(502).json({ error: "Could not determine location from IP" });
+  } catch (err) {
+    console.warn("[geolocation] IP lookup failed:", err.message);
+    res.status(502).json({ error: "IP geolocation service unavailable" });
+  }
+});
 
 // ── Health check ──────────────────────────────────────
 app.get("/api/health", (_req, res) => res.json({ status: "ok" }));

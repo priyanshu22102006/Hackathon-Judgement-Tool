@@ -1,4 +1,4 @@
-/* ── Reset & base ────────────────────────── */
+/* ── Reset & base ─────────────────────────────── */
 *,
 *::before,
 *::after {
@@ -8,10 +8,11 @@
 }
 
 body {
-  font-family: "Inter", system-ui, -apple-system, sans-serif;
-  background: #0f1117;
-  color: #e1e4e8;
-  line-height: 1.6;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    Oxygen, Ubuntu, Cantarell, sans-serif;
+  background: #0d1117;
+  color: #c9d1d9;
+  line-height: 1.5;
 }
 
 a {
@@ -22,67 +23,100 @@ a:hover {
   text-decoration: underline;
 }
 
-/* ── Layout ──────────────────────────────── */
-.app-header {
+/* ── App shell ────────────────────────────────── */
+.app-shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.top-nav {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16px 32px;
+  padding: 12px 24px;
   background: #161b22;
-  border-bottom: 1px solid #30363d;
+  border-bottom: 1px solid #21262d;
 }
-.app-header h1 {
-  font-size: 1.25rem;
+
+.nav-brand {
   font-weight: 700;
-}
-.app-header nav a {
-  margin-left: 24px;
-  font-size: 0.9rem;
-  font-weight: 500;
-}
-.app-header nav a.active {
+  font-size: 1.1rem;
   color: #f0f6fc;
-  border-bottom: 2px solid #58a6ff;
-  padding-bottom: 2px;
 }
 
-.page {
+.nav-links {
+  display: flex;
+  gap: 16px;
+}
+
+.nav-links a {
+  padding: 6px 14px;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  color: #8b949e;
+  transition: background 0.15s, color 0.15s;
+}
+.nav-links a:hover {
+  background: #21262d;
+  color: #c9d1d9;
+  text-decoration: none;
+}
+.nav-links a.active {
+  background: #1f6feb;
+  color: #fff;
+}
+
+.main-content {
+  flex: 1;
+  padding: 24px;
   max-width: 1200px;
-  margin: 32px auto;
-  padding: 0 24px;
+  margin: 0 auto;
+  width: 100%;
 }
 
-/* ── Cards ───────────────────────────────── */
+/* ── Cards ────────────────────────────────────── */
 .card {
   background: #161b22;
-  border: 1px solid #30363d;
-  border-radius: 10px;
-  padding: 20px;
+  border: 1px solid #21262d;
+  border-radius: 8px;
+  padding: 16px 20px;
   margin-bottom: 16px;
 }
 
 .card-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 16px;
-  margin-bottom: 24px;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+  margin-bottom: 20px;
 }
 
 .stat-card {
   text-align: center;
+  padding: 20px 12px;
 }
-.stat-card .stat-value {
-  font-size: 2rem;
+.stat-value {
+  font-size: 1.8rem;
   font-weight: 700;
+  line-height: 1;
+  margin-bottom: 4px;
 }
-.stat-card .stat-label {
-  font-size: 0.8rem;
+.stat-label {
+  font-size: 0.78rem;
   color: #8b949e;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.5px;
 }
 
-/* ── Badges ──────────────────────────────── */
+/* ── Section title ────────────────────────────── */
+.section-title {
+  font-size: 1rem;
+  font-weight: 600;
+  margin-bottom: 12px;
+  color: #f0f6fc;
+}
+
+/* ── Badge ────────────────────────────────────── */
 .badge {
   display: inline-block;
   padding: 2px 10px;
@@ -90,259 +124,79 @@ a:hover {
   font-size: 0.75rem;
   font-weight: 600;
   text-transform: uppercase;
-}
-.badge.valid {
-  background: #1b4332;
-  color: #52c41a;
-}
-.badge.invalid {
-  background: #4a1c1c;
-  color: #f85149;
-}
-.badge.on-site {
-  background: #1b4332;
-  color: #52c41a;
-}
-.badge.outside {
-  background: #4a1c1c;
-  color: #f85149;
-}
-.badge.unknown {
-  background: #2d333b;
-  color: #8b949e;
-}
-.badge.flagged {
-  background: #4a1c1c;
-  color: #f85149;
+  letter-spacing: 0.3px;
 }
 .badge.clean {
-  background: #1b4332;
+  background: rgba(82, 196, 26, 0.15);
   color: #52c41a;
 }
-
-/* ── Commit list ─────────────────────────── */
-.commit-list {
-  list-style: none;
+.badge.flagged {
+  background: rgba(248, 81, 73, 0.15);
+  color: #f85149;
 }
-.commit-item {
-  display: grid;
-  grid-template-columns: 1fr auto auto;
-  gap: 12px;
-  align-items: center;
-  padding: 14px 0;
-  border-bottom: 1px solid #21262d;
-}
-.commit-item:last-child {
-  border-bottom: none;
-}
-.commit-msg {
-  font-weight: 500;
-  word-break: break-word;
-}
-.commit-meta {
-  font-size: 0.8rem;
-  color: #8b949e;
-  margin-top: 2px;
-}
-.commit-hash {
-  font-family: "SFMono-Regular", Consolas, monospace;
-  font-size: 0.8rem;
-  color: #58a6ff;
-}
-.commit-badges {
-  display: flex;
-  gap: 6px;
+.badge.mixed-badge {
+  background: rgba(210, 153, 34, 0.15);
+  color: #d29922;
 }
 
-/* ── Team table (judge) ──────────────────── */
+/* ── Team table ───────────────────────────────── */
 .team-table {
   width: 100%;
   border-collapse: collapse;
-}
-.team-table th,
-.team-table td {
-  text-align: left;
-  padding: 10px 14px;
-  border-bottom: 1px solid #21262d;
+  font-size: 0.88rem;
 }
 .team-table th {
-  color: #8b949e;
-  font-size: 0.8rem;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-.team-table tr:hover td {
-  background: #1c2128;
-}
-.team-table .clickable {
-  cursor: pointer;
-}
-
-/* ── Forms / inputs ──────────────────────── */
-select,
-input {
-  background: #0d1117;
-  color: #e1e4e8;
-  border: 1px solid #30363d;
-  border-radius: 6px;
+  text-align: left;
   padding: 8px 12px;
-  font-size: 0.9rem;
-}
-select:focus,
-input:focus {
-  outline: none;
-  border-color: #58a6ff;
-}
-
-/* ── Misc ────────────────────────────────── */
-.section-title {
-  font-size: 1.1rem;
-  font-weight: 600;
-  margin-bottom: 16px;
-}
-.empty {
-  text-align: center;
-  padding: 48px 0;
-  color: #484f58;
-}
-.files-list {
-  font-size: 0.8rem;
+  border-bottom: 1px solid #21262d;
   color: #8b949e;
-  margin-top: 4px;
+  font-weight: 600;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
 }
-.files-list span {
-  margin-right: 8px;
+.team-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid #21262d;
 }
-.files-list .added {
-  color: #52c41a;
-}
-.files-list .modified {
-  color: #d29922;
-}
-.files-list .removed {
-  color: #f85149;
+.team-table tr.clickable:hover {
+  background: rgba(56, 139, 253, 0.06);
 }
 
-/* ── Integrity Meter ─────────────────────── */
+/* ── Integrity overview ───────────────────────── */
 .integrity-overview {
   display: flex;
-  gap: 32px;
+  gap: 24px;
   align-items: flex-start;
   flex-wrap: wrap;
 }
-.integrity-meter {
-  display: flex;
-  gap: 28px;
-  align-items: center;
-  flex-wrap: wrap;
-}
-.integrity-gauge {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  flex-shrink: 0;
-}
-.verdict-label {
-  font-size: 1rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-}
 
-.integrity-breakdown {
-  flex: 1;
-  min-width: 200px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-.score-bar-header {
-  display: flex;
-  justify-content: space-between;
-  font-size: 0.8rem;
-  margin-bottom: 3px;
-}
-.score-bar-label {
-  color: #e1e4e8;
-  font-weight: 500;
-}
-.score-bar-value {
-  color: #8b949e;
-}
-.score-bar-track {
-  height: 8px;
-  background: #21262d;
-  border-radius: 4px;
-  overflow: hidden;
-}
-.score-bar-fill {
-  height: 100%;
-  border-radius: 4px;
-}
-
-/* ── Flags ────────────────────────────────── */
-.flags-list {
-  flex: 1;
-  min-width: 220px;
-}
-.flags-title {
-  font-size: 0.9rem;
-  font-weight: 600;
-  color: #d29922;
-  margin-bottom: 10px;
-}
-.flags-list ul {
-  list-style: none;
-}
-.flag-item {
-  padding: 6px 10px;
-  margin-bottom: 6px;
-  background: #1c1508;
-  border-left: 3px solid #d29922;
-  border-radius: 4px;
-  font-size: 0.82rem;
-  color: #e1e4e8;
-  line-height: 1.4;
-}
-
-/* ── Live indicator ──────────────────────── */
-.live-indicator {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 0.8rem;
-}
-.live-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #52c41a;
-  animation: pulse 1.5s ease-in-out infinite;
-}
-@keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.3; }
-}
-.live-text {
-  color: #52c41a;
-  font-weight: 600;
-}
-.live-time {
-  color: #484f58;
-}
-
-/* ── Mixed badge ─────────────────────────── */
-.badge.mixed-badge {
-  background: #2d2200;
-  color: #d29922;
-}
-
-/* ── Team detail panel (judge) ───────────── */
 .team-detail-panel {
   display: flex;
   gap: 24px;
   align-items: flex-start;
   flex-wrap: wrap;
-  margin-bottom: 12px;
+}
+
+/* ── Select / inputs ──────────────────────────── */
+select {
+  background: #0d1117;
+  border: 1px solid #30363d;
+  border-radius: 6px;
+  color: #c9d1d9;
+  padding: 6px 10px;
+  font-size: 0.88rem;
+}
+
+/* ── Scrollbar ────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-thumb {
+  background: #30363d;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-track {
+  background: #0d1117;
 }
