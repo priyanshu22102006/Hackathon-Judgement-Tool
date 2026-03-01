@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from "react";
-import axios from "axios";
+import api from "../api/axiosInstance";
+import { useAuth } from "../context/AuthContext";
 import CommitTimeline from "../components/CommitTimeline";
 import IntegrityMeter from "../components/IntegrityMeter";
 import FlagsList from "../components/FlagsList";
@@ -9,25 +10,19 @@ const POLL_INTERVAL = 10_000; // 10 seconds
 const LOCATION_INTERVAL = 15_000; // report location every 15 seconds
 
 export default function ParticipantDashboard() {
-  const [teams, setTeams] = useState([]);
-  const [selectedTeam, setSelectedTeam] = useState("");
+  const { user } = useAuth();
+  const selectedTeam = user?.teamId || "";
+  const repoName = user?.githubRepo || "";
+
   const [summary, setSummary] = useState(null);
   const [commits, setCommits] = useState([]);
   const [loading, setLoading] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [lastUpdate, setLastUpdate] = useState(null);
-  const [geoStatus, setGeoStatus] = useState("pending"); // pending | active | denied | unavailable
+  const [geoStatus, setGeoStatus] = useState("pending");
   const [currentLocation, setCurrentLocation] = useState(null);
   const intervalRef = useRef(null);
   const geoIntervalRef = useRef(null);
-
-  // Load all teams on mount
-  useEffect(() => {
-    axios.get("/api/teams").then((res) => {
-      setTeams(res.data);
-      if (res.data.length > 0) setSelectedTeam(res.data[0]._id);
-    });
-  }, []);
 
   // Fetch data function (reusable for polling)
   const fetchData = useCallback(
@@ -36,8 +31,8 @@ export default function ParticipantDashboard() {
       if (showLoading) setLoading(true);
 
       Promise.all([
-        axios.get(`/api/participant/commits?team=${selectedTeam}`),
-        axios.get(`/api/participant/summary?team=${selectedTeam}`),
+        api.get(`/api/participant/commits?team=${selectedTeam}`),
+        api.get(`/api/participant/summary?team=${selectedTeam}`),
       ])
         .then(([commitsRes, summaryRes]) => {
           setCommits(commitsRes.data);
@@ -54,7 +49,7 @@ export default function ParticipantDashboard() {
   useEffect(() => {
     if (!selectedTeam) return;
     setSyncing(true);
-    axios
+    api
       .post(`/api/sync/team/${selectedTeam}`)
       .catch((err) => console.warn("[sync]", err.message))
       .finally(() => {
@@ -80,7 +75,7 @@ export default function ParticipantDashboard() {
         setCurrentLocation({ latitude, longitude, accuracy });
         setGeoStatus("active");
 
-        axios
+        api
           .post("/api/participant/location", {
             team: selectedTeam,
             latitude,
@@ -119,20 +114,10 @@ export default function ParticipantDashboard() {
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <label htmlFor="team-select" style={{ fontWeight: 600 }}>
-            Your Team:
-          </label>
-          <select
-            id="team-select"
-            value={selectedTeam}
-            onChange={(e) => setSelectedTeam(e.target.value)}
-          >
-            {teams.map((t) => (
-              <option key={t._id} value={t._id}>
-                {t.name} — {t.repoFullName}
-              </option>
-            ))}
-          </select>
+          <span style={{ fontWeight: 600 }}>Your Repo:</span>
+          <span style={{ color: "#58a6ff", fontFamily: "monospace", fontSize: "0.9rem" }}>
+            {repoName || "(no repo linked)"}
+          </span>
         </div>
         <LiveIndicator lastUpdate={lastUpdate} />
       </div>

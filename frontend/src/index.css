@@ -346,3 +346,152 @@ input:focus {
   flex-wrap: wrap;
   margin-bottom: 12px;
 }
+
+/* ── Login Page ──────────────────────────── */
+.login-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  background: #0f1117;
+  padding: 24px;
+}
+.login-card {
+  background: #161b22;
+  border: 1px solid #30363d;
+  border-radius: 12px;
+  padding: 40px 36px 36px;
+  width: 100%;
+  max-width: 400px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.login-header {
+  text-align: center;
+  margin-bottom: 8px;
+}
+.login-icon {
+  font-size: 2.2rem;
+  display: block;
+  margin-bottom: 8px;
+}
+.login-header h2 {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: #f0f6fc;
+  margin-bottom: 4px;
+}
+.login-subtitle {
+  color: #8b949e;
+  font-size: 0.9rem;
+}
+.login-label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: #c9d1d9;
+}
+.login-input {
+  background: #0d1117;
+  color: #e1e4e8;
+  border: 1px solid #30363d;
+  border-radius: 6px;
+  padding: 10px 14px;
+  font-size: 0.95rem;
+  transition: border-color 0.2s;
+}
+.login-input:focus {
+  outline: none;
+  border-color: #58a6ff;
+  box-shadow: 0 0 0 3px rgba(88, 166, 255, 0.15);
+}
+.login-input::placeholder {
+  color: #484f58;
+}
+.login-btn {
+  background: #238636;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 12px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+  margin-top: 4px;
+}
+.login-btn:hover {
+  background: #2ea043;
+}
+.login-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.login-error {
+  background: #4a1c1c;
+  color: #f85149;
+  padding: 10px 14px;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  text-align: center;
+}
+
+/* ── Login role tabs ─────────────────────── */
+.login-tabs {
+  display: flex;
+  border: 1px solid #30363d;
+  border-radius: 8px;
+  overflow: hidden;
+  margin-bottom: 4px;
+}
+.login-tab {
+  flex: 1;
+  padding: 10px;
+  background: transparent;
+  color: #8b949e;
+  border: none;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: background 0.15s, color 0.15s;
+}
+.login-tab:hover {
+  background: #1c2128;
+  color: #e1e4e8;
+}
+.login-tab.active {
+  background: #21262d;
+  color: #f0f6fc;
+  font-weight: 600;
+}
+.login-hint {
+  font-size: 0.75rem;
+  color: #484f58;
+  margin-top: 2px;
+}
+
+/* ── Navbar auth extras ──────────────────── */
+.nav-user {
+  margin-left: 24px;
+  font-size: 0.8rem;
+  color: #8b949e;
+}
+.logout-btn {
+  margin-left: 16px;
+  background: transparent;
+  color: #f85149;
+  border: 1px solid #f85149;
+  border-radius: 6px;
+  padding: 4px 14px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+}
+.logout-btn:hover {
+  background: #f85149;
+  color: #fff;
+}

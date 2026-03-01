@@ -12,9 +12,11 @@
  */
 require("dotenv").config();
 const connectDB = require("./config/db");
+const bcrypt = require("bcryptjs");
 const Hackathon = require("./models/Hackathon");
 const Team = require("./models/Team");
 const Commit = require("./models/Commit");
+const User = require("./models/User");
 const { syncAllTeams } = require("./services/githubPoller");
 
 // ── EDIT THIS BLOCK to change the hackathon / team ──────────────────────────
@@ -38,6 +40,12 @@ const SEED_CONFIG = {
     // repoFullName: "priyanshu22102006/Coding",
     members: ["alice", "bob", "charlie"],
   },
+  users: [
+    { name: "Priyanshu",  email: "priyanshuchandrasarker2210@gmail.com", password: "priyanshu154632",  role: "participant" },
+    { name: "Pritim",     email: "mondalpritim14@gmail.com",             password: "pritim14082004",    role: "participant" },
+    { name: "Judge One",  email: "judgesdiv-001@gmail.com",              password: "judgediv001",       role: "judge" },
+    { name: "Judge Two",  email: "judgesdiv-002@gmail.com",              password: "judgediv002",       role: "judge" },
+  ],
 };
 // ────────────────────────────────────────────────────────────────────────────
 
@@ -50,6 +58,7 @@ async function seed(dbAlreadyConnected = false) {
   await Commit.deleteMany({});
   await Team.deleteMany({});
   await Hackathon.deleteMany({});
+  await User.deleteMany({});
 
   // ── Hackathon ────────────────────────────────────────
   const hackathon = await Hackathon.create(SEED_CONFIG.hackathon);
@@ -59,6 +68,18 @@ async function seed(dbAlreadyConnected = false) {
     ...SEED_CONFIG.team,
     hackathon: hackathon._id,
   });
+
+  // ── Seed Users ──────────────────────────────────────────
+  for (const u of SEED_CONFIG.users) {
+    const passwordHash = await bcrypt.hash(u.password, 10);
+    await User.create({
+      name: u.name,
+      email: u.email.toLowerCase(),
+      passwordHash,
+      role: u.role,
+    });
+  }
+  console.log(`✅  Seeded ${SEED_CONFIG.users.length} user accounts.`);
 
   // Immediately sync commits from GitHub so data is available on first page load.
   console.log(`⏳  Seeded hackathon + team. Fetching commits for ${team.repoFullName}…`);

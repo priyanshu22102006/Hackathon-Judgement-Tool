@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from "react";
-import axios from "axios";
+import api from "../api/axiosInstance";
 import CommitTimeline from "../components/CommitTimeline";
 import IntegrityMeter from "../components/IntegrityMeter";
 import FlagsList from "../components/FlagsList";
@@ -28,7 +28,7 @@ export default function JudgeDashboard() {
 
   // Load hackathons on mount
   useEffect(() => {
-    axios.get("/api/hackathons").then((res) => {
+    api.get("/api/hackathons").then((res) => {
       setHackathons(res.data);
       if (res.data.length > 0) setSelectedHackathon(res.data[0]._id);
     });
@@ -39,7 +39,7 @@ export default function JudgeDashboard() {
     (showLoading = false) => {
       if (!selectedHackathon) return;
       if (showLoading) setLoading(true);
-      axios
+      api
         .get(`/api/judge/hackathon/${selectedHackathon}/overview`)
         .then((res) => {
           setOverview(res.data);
@@ -55,7 +55,7 @@ export default function JudgeDashboard() {
   useEffect(() => {
     if (!selectedHackathon) return;
     setSyncing(true);
-    axios
+    api
       .post(`/api/sync/hackathon/${selectedHackathon}`)
       .catch((err) => console.warn("[sync]", err.message))
       .finally(() => {
@@ -87,7 +87,7 @@ export default function JudgeDashboard() {
     setVenueSaving(true);
     setVenueResult(null);
     try {
-      const { data } = await axios.put(
+      const { data } = await api.put(
         `/api/hackathons/${selectedHackathon}/venue`,
         {
           label: venueLabel,

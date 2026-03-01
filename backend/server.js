@@ -9,10 +9,13 @@ const teamRoutes = require("./routes/team");
 const participantRoutes = require("./routes/participant");
 const judgeRoutes = require("./routes/judge");
 const syncRoutes = require("./routes/sync");
+const authRoutes = require("./routes/auth");
+const { authenticate, requireRole } = require("./middleware/authMiddleware");
 const { startPollingLoop } = require("./services/githubPoller");
 const SEED_CONFIG = require("./seed");
 const { seed } = require("./seed");
 const Team = require("./models/Team");
+const User = require("./models/User");
 
 const app = express();
 
@@ -26,11 +29,12 @@ app.use("/api/webhook", express.raw({ type: "application/json" }));
 app.use(express.json());
 
 // ── Routes ────────────────────────────────────────────
-app.use("/api/webhook", webhookRoutes);
-app.use("/api/hackathons", hackathonRoutes);
-app.use("/api/teams", teamRoutes);
-app.use("/api/participant", participantRoutes);
-app.use("/api/judge", judgeRoutes);
+app.use("/api/auth", authRoutes);              // public
+app.use("/api/webhook", webhookRoutes);         // secured by HMAC
+app.use("/api/hackathons", hackathonRoutes);    // public (read)
+app.use("/api/teams", teamRoutes);              // public (read)
+app.use("/api/participant", authenticate, requireRole("participant"), participantRoutes);
+app.use("/api/judge", authenticate, requireRole("judge"), judgeRoutes);
 app.use("/api/sync", syncRoutes);
 
 // ── Health check ──────────────────────────────────────
@@ -55,12 +59,13 @@ connectDB()
     // nodemon restarts the server here. We detect the mismatch and reseed
     // automatically so the new repo's commits are ready on the first refresh.
     const existingTeam = await Team.findOne({});
+    const existingUsers = await User.countDocuments();
     const configuredRepo = SEED_CONFIG.team?.repoFullName;
-    if (!existingTeam || existingTeam.repoFullName !== configuredRepo) {
+    if (!existingTeam || existingTeam.repoFullName !== configuredRepo || existingUsers === 0) {
       console.log(
-        `[auto-seed] Repo mismatch: DB has "${
+        `[auto-seed] Repo mismatch or missing users: DB has "${
           existingTeam?.repoFullName ?? "(none)"
-        }", config says "${configuredRepo}". Re-seeding now…`
+        }", config says "${configuredRepo}", users: ${existingUsers}. Re-seeding now…`
       );
       await seed(true); // true = DB already connected, don't reconnect
     }
