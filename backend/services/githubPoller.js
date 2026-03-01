@@ -35,28 +35,49 @@ async function syncRepoCommits(team, hackathon) {
   try {
     // Fetch ALL commits from GitHub API with pagination
     const headers = { Accept: "application/vnd.github+json" };
-    // If a GitHub token is configured, use it to avoid rate limits
-    if (process.env.GITHUB_TOKEN) {
-      headers.Authorization = `Bearer ${process.env.GITHUB_TOKEN}`;
-    }
+    // NOTE: Token auth disabled — public repos work fine without it.
+    // To re-enable (for higher rate limits), uncomment below and set a valid GITHUB_TOKEN in .env.
+    // if (process.env.GITHUB_TOKEN) {
+    //   headers.Authorization = `Bearer ${process.env.GITHUB_TOKEN}`;
+    // }
 
-    let ghCommits = [];
-    let page = 1;
-    while (true) {
-      const { data, headers: respHeaders } = await axios.get(
-        `${GITHUB_API}/repos/${repoFullName}/commits`,
-        {
-          headers,
-          params: {
-            per_page: 100,
-            page,
-          },
-        }
-      );
-      ghCommits = ghCommits.concat(data);
-      // Stop when we get fewer than a full page (no more pages)
-      if (data.length < 100) break;
-      page++;
+    // Helper to fetch all pages of commits
+    const fetchAllCommits = async (reqHeaders) => {
+      const commits = [];
+      let page = 1;
+      while (true) {
+        const { data } = await axios.get(
+          `${GITHUB_API}/repos/${repoFullName}/commits`,
+          {
+            headers: reqHeaders,
+            params: { per_page: 100, page },
+          }
+        );
+        commits.push(...data);
+        if (data.length < 100) break;
+        page++;
+      }
+      return commits;
+    };
+
+    let ghCommits;
+    try {
+      ghCommits = await fetchAllCommits(headers);
+    } catch (err) {
+      // If token is invalid (401/403), retry without it for public repos
+      if (
+        process.env.GITHUB_TOKEN &&
+        err.response &&
+        [401, 403].includes(err.response.status)
+      ) {
+        console.warn(
+          `[poller] Token auth failed (${err.response.status}) for ${repoFullName}, retrying without token…`
+        );
+        const fallbackHeaders = { Accept: "application/vnd.github+json" };
+        ghCommits = await fetchAllCommits(fallbackHeaders);
+      } else {
+        throw err;
+      }
     }
 
     let newCount = 0;
