@@ -1,0 +1,202 @@
+/* ── Reset & base ─────────────────────────────── */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    Oxygen, Ubuntu, Cantarell, sans-serif;
+  background: #0d1117;
+  color: #c9d1d9;
+  line-height: 1.5;
+}
+
+a {
+  color: #58a6ff;
+  text-decoration: none;
+}
+a:hover {
+  text-decoration: underline;
+}
+
+/* ── App shell ────────────────────────────────── */
+.app-shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.top-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 24px;
+  background: #161b22;
+  border-bottom: 1px solid #21262d;
+}
+
+.nav-brand {
+  font-weight: 700;
+  font-size: 1.1rem;
+  color: #f0f6fc;
+}
+
+.nav-links {
+  display: flex;
+  gap: 16px;
+}
+
+.nav-links a {
+  padding: 6px 14px;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  color: #8b949e;
+  transition: background 0.15s, color 0.15s;
+}
+.nav-links a:hover {
+  background: #21262d;
+  color: #c9d1d9;
+  text-decoration: none;
+}
+.nav-links a.active {
+  background: #1f6feb;
+  color: #fff;
+}
+
+.main-content {
+  flex: 1;
+  padding: 24px;
+  max-width: 1200px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+/* ── Cards ────────────────────────────────────── */
+.card {
+  background: #161b22;
+  border: 1px solid #21262d;
+  border-radius: 8px;
+  padding: 16px 20px;
+  margin-bottom: 16px;
+}
+
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.stat-card {
+  text-align: center;
+  padding: 20px 12px;
+}
+.stat-value {
+  font-size: 1.8rem;
+  font-weight: 700;
+  line-height: 1;
+  margin-bottom: 4px;
+}
+.stat-label {
+  font-size: 0.78rem;
+  color: #8b949e;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* ── Section title ────────────────────────────── */
+.section-title {
+  font-size: 1rem;
+  font-weight: 600;
+  margin-bottom: 12px;
+  color: #f0f6fc;
+}
+
+/* ── Badge ────────────────────────────────────── */
+.badge {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+.badge.clean {
+  background: rgba(82, 196, 26, 0.15);
+  color: #52c41a;
+}
+.badge.flagged {
+  background: rgba(248, 81, 73, 0.15);
+  color: #f85149;
+}
+.badge.mixed-badge {
+  background: rgba(210, 153, 34, 0.15);
+  color: #d29922;
+}
+
+/* ── Team table ───────────────────────────────── */
+.team-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+.team-table th {
+  text-align: left;
+  padding: 8px 12px;
+  border-bottom: 1px solid #21262d;
+  color: #8b949e;
+  font-weight: 600;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+.team-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid #21262d;
+}
+.team-table tr.clickable:hover {
+  background: rgba(56, 139, 253, 0.06);
+}
+
+/* ── Integrity overview ───────────────────────── */
+.integrity-overview {
+  display: flex;
+  gap: 24px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.team-detail-panel {
+  display: flex;
+  gap: 24px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+/* ── Select / inputs ──────────────────────────── */
+select {
+  background: #0d1117;
+  border: 1px solid #30363d;
+  border-radius: 6px;
+  color: #c9d1d9;
+  padding: 6px 10px;
+  font-size: 0.88rem;
+}
+
+/* ── Scrollbar ────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-thumb {
+  background: #30363d;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-track {
+  background: #0d1117;
+}
